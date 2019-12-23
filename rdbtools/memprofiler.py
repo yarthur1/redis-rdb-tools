@@ -158,7 +158,7 @@ class MemoryCallback(RdbCallback):
         if key is not None:
             key = bytes_to_unicode(key, self._escape, skip_printable=True)
         record = MemoryRecord(self._dbnum, record_type, key, byte_count, encoding, size, largest_el, expiry)
-        self._stream.next_record(record)
+        self._stream.next_record(record)  #记录到文件
 
     def start_rdb(self):
         pass
@@ -176,7 +176,7 @@ class MemoryCallback(RdbCallback):
         self._db_keys = 0
         self._db_expires = 0
 
-    def end_database(self, db_number):
+    def end_database(self, db_number):    #dict开销
         self.emit_record("dict", None, self.hashtable_overhead(self._db_keys), None, None, None, None)
         self.emit_record("dict", None, self.hashtable_overhead(self._db_expires), None, None, None, None)
         if hasattr(self._stream, 'end_database'):
