@@ -124,6 +124,8 @@ class JSONCallback(RdbCallback):
         self._out.write(b'}')
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            key = "__aux__"
         self._start_key(key, 0)
         self._out.write(self.encode_key(key) + b':{')
         return False
@@ -172,7 +174,8 @@ class KeysOnlyCallback(RdbCallback):
         self._keyout(key)
 
     def start_module(self, key, module_name, expiry, info):
-        self._keyout(key)
+        if key is not None:
+            self._keyout(key)
         return False
 
 class KeyValsOnlyCallback(RdbCallback):
@@ -258,6 +261,8 @@ class KeyValsOnlyCallback(RdbCallback):
         self._end_key(key)
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            return False
         self._start_key(key, 0)
         self._out.write(self.encode_key(key) + b' ')
         return False
@@ -343,6 +348,8 @@ class DiffCallback(RdbCallback):
         self.newline()
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            key = "__aux__"
         self._out.write(self.dbstr() + self.encode_key(key) + b' -> module-name=' + codecs.encode(module_name, 'ascii'))
         self.newline()
         return False
@@ -356,8 +363,11 @@ def _unix_timestamp(dt):
 
 
 class ProtocolCallback(RdbCallback):
-    def __init__(self, out, string_escape=None):
+    def __init__(self, out, string_escape=None, emit_expire=True, amend_expire=0):
         super(ProtocolCallback, self).__init__(string_escape)
+        self._emit_expire = emit_expire
+        self._amend_expire = (amend_expire > 0)
+        self._expire_delta = calendar.datetime.timedelta(seconds=amend_expire)
         self._out = out
         self.reset()
 
@@ -365,6 +375,8 @@ class ProtocolCallback(RdbCallback):
         self._expires = {}
 
     def set_expiry(self, key, dt):
+        if self._amend_expire:
+            dt = dt + self._expire_delta
         self._expires[key] = dt
 
     def get_expiry_seconds(self, key):
@@ -376,7 +388,7 @@ class ProtocolCallback(RdbCallback):
         return key in self._expires
 
     def pre_expiry(self, key, expiry):
-        if expiry is not None:
+        if expiry is not None and self._emit_expire:
             self.set_expiry(key, expiry)
 
     def post_expiry(self, key):
